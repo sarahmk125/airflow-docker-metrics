@@ -1,0 +1,155 @@
+version: '2.1'
+services:
+    redis:
+        container_name: airflow-redis
+        image: 'redis:5.0.5'
+        depends_on:
+            - statsd-exporter
+
+    postgres:
+        container_name: airflow-postgres
+        image: postgres:9.6
+        depends_on:
+            - statsd-exporter
+        environment:
+            - POSTGRES_USER=airflow
+            - POSTGRES_PASSWORD=airflow
+            - POSTGRES_DB=airflow
+
+    webserver:
+        container_name: airflow-webserver
+        image: apache/airflow:1.10.12-python3.7
+        restart: always
+        depends_on:
+            - postgres
+            - redis
+            - statsd-exporter
+        environment:
+            - LOAD_EX=n
+            - EXECUTOR=Celery
+            - POSTGRES_USER=airflow
+            - POSTGRES_PASSWORD=airflow
+            - POSTGRES_DB=airflow
+            - AIRFLOW__SCHEDULER__STATSD_ON=True
+            - AIRFLOW__SCHEDULER__STATSD_HOST=statsd-exporter
+            - AIRFLOW__SCHEDULER__STATSD_PORT=8125
+            - AIRFLOW__SCHEDULER__STATSD_PREFIX=airflow
+            - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+            - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
+            - AIRFLOW__CORE__FERNET_KEY=pMrhjIcqUNHMYRk_ZOBmMptWR6o1DahCXCKn5lEMpzM=
+            - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+            - AIRFLOW__CORE__AIRFLOW_HOME=/opt/airflow/
+            - AIRFLOW__CORE__LOAD_EXAMPLES=False
+            - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
+            - AIRFLOW__WEBSERVER__WORKERS=2
+            - AIRFLOW__WEBSERVER__WORKER_REFRESH_INTERVAL=1800
+        volumes:
+            - ./dags:/opt/airflow/dags
+        ports:
+            - "8080:8080"
+        command: bash -c "airflow initdb && airflow webserver"
+        healthcheck:
+            test: ["CMD-SHELL", "[ -f /opt/airflow/airflow-webserver.pid ]"]
+            interval: 30s
+            timeout: 30s
+            retries: 3
+
+    flower:
+        container_name: airflow-flower
+        image: apache/airflow:1.10.12-python3.7
+        restart: always
+        depends_on:
+            - redis
+            - statsd-exporter
+        environment:
+            - EXECUTOR=Celery
+        ports:
+            - "5555:5555"
+        command: flower
+
+    scheduler:
+        container_name: airflow-scheduler
+        image: apache/airflow:1.10.12-python3.7
+        restart: always
+        depends_on:
+            - statsd-exporter
+            - webserver
+        volumes:
+            - ./dags:/opt/airflow/dags
+        environment:
+            - LOAD_EX=n
+            - EXECUTOR=Celery
+            - POSTGRES_USER=airflow
+            - POSTGRES_PASSWORD=airflow
+            - POSTGRES_DB=airflow
+            - AIRFLOW__SCHEDULER__STATSD_ON=True
+            - AIRFLOW__SCHEDULER__STATSD_HOST=statsd-exporter
+            - AIRFLOW__SCHEDULER__STATSD_PORT=8125
+            - AIRFLOW__SCHEDULER__STATSD_PREFIX=airflow
+            - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+            - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
+            - AIRFLOW__CORE__FERNET_KEY=pMrhjIcqUNHMYRk_ZOBmMptWR6o1DahCXCKn5lEMpzM=
+            - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+            - AIRFLOW__CORE__AIRFLOW_HOME=/opt/airflow/
+            - AIRFLOW__CORE__LOAD_EXAMPLES=False
+            - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
+        command: bash -c "sleep 30 && airflow scheduler"
+
+    worker:
+        container_name: airflow-worker
+        image: apache/airflow:1.10.12-python3.7
+        restart: always
+        depends_on:
+            - statsd-exporter
+            - postgres
+            - webserver
+        volumes:
+            - ./dags:/opt/airflow/dags
+        environment:
+            - EXECUTOR=Celery
+            - POSTGRES_USER=airflow
+            - POSTGRES_PASSWORD=airflow
+            - POSTGRES_DB=airflow
+            - AIRFLOW__SCHEDULER__STATSD_ON=True
+            - AIRFLOW__SCHEDULER__STATSD_HOST=statsd-exporter
+            - AIRFLOW__SCHEDULER__STATSD_PORT=8125
+            - AIRFLOW__SCHEDULER__STATSD_PREFIX=airflow
+            - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+            - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
+            - AIRFLOW__CORE__FERNET_KEY=pMrhjIcqUNHMYRk_ZOBmMptWR6o1DahCXCKn5lEMpzM=
+            - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+            - AIRFLOW__CORE__AIRFLOW_HOME=/opt/airflow/
+            - AIRFLOW__CORE__LOAD_EXAMPLES=False
+            - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
+        command: bash -c "sleep 30 && airflow worker"
+
+    statsd-exporter:
+        image: prom/statsd-exporter
+        container_name: airflow-statsd-exporter
+        command: "--statsd.listen-udp=:8125 --web.listen-address=:9102"
+        ports:
+            - 9123:9102
+            - 8125:8125/udp
+    
+    prometheus:
+        image: prom/prometheus
+        container_name: airflow-prometheus
+        ports:
+            - 9090:9090
+        volumes:
+            - ./prometheus/prometheus.yaml:/opt/airflow/prometheus/prometheus.yaml
+            - ./prometheus/volume:/opt/airflow/prometheus
+        
+    grafana:
+        image: grafana/grafana
+        container_name: airflow-grafana
+        environment:
+            GF_SECURITY_ADMIN_USER: admin
+            GF_SECURITY_ADMIN_PASSWORD: password
+        ports:
+            - 3000:3000
+        volumes:
+            - ./grafana/volume/data:/opt/airflow/grafana
+            - ./grafana/volume/datasources:/opt/airflow/grafana/datasources
+            - ./grafana/volume/dashboards:/opt/airflow/grafana/dashboards
+            - ./grafana/volume/provisioning:/opt/airflow/grafana/provisioning
