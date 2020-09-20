@@ -135,22 +135,24 @@ services:
     prometheus:
         image: prom/prometheus
         container_name: airflow-prometheus
+        user: "0"
         ports:
             - 9090:9090
         volumes:
-            - ./prometheus/prometheus.yaml:/opt/airflow/prometheus/prometheus.yaml
-            - ./prometheus/volume:/opt/airflow/prometheus
+            - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+            - ./prometheus/volume:/prometheus
         
     grafana:
-        image: grafana/grafana
+        image: grafana/grafana:7.1.5
         container_name: airflow-grafana
         environment:
             GF_SECURITY_ADMIN_USER: admin
             GF_SECURITY_ADMIN_PASSWORD: password
+            GF_PATHS_PROVISIONING: /grafana/provisioning
         ports:
             - 3000:3000
         volumes:
-            - ./grafana/volume/data:/opt/airflow/grafana
-            - ./grafana/volume/datasources:/opt/airflow/grafana/datasources
-            - ./grafana/volume/dashboards:/opt/airflow/grafana/dashboards
-            - ./grafana/volume/provisioning:/opt/airflow/grafana/provisioning
+            - ./grafana/volume/data:/grafana
+            - ./grafana/volume/datasources:/grafana/datasources
+            - ./grafana/volume/dashboards:/grafana/dashboards
+            - ./grafana/volume/provisioning:/grafana/provisioning

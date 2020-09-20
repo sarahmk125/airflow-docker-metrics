@@ -1,6 +1,6 @@
 - Sql alchemy conn : postgresql
 - statsd: in airflow env settings
-- Grafana: provisioning
+- Grafana: provisioning, files (default.yaml)
 - depends_on in docker compose
 - add environments variables `airflow__scheduler__statsd`
 - environment vars, no config
