@@ -1,6 +1,6 @@
 # Overview
 
-This repository is a deployment of Airflow, a data orchestration tool, from the official `apache/airflow` image in Docker with reporting dashboards setup in Grafana. To configure Airflow metrics to be usable in Grafana, the following tools are also used: StatsD, StatsD-Exporter, and Prometheus. The setup is described below.
+This repository is one deployment of Airflow, a data orchestration tool, from the official `apache/airflow` image in Docker with reporting dashboards setup in Grafana. To configure Airflow metrics to be usable in Grafana, the following tools are also used: StatsD, StatsD-Exporter, and Prometheus. The setup is described below.
 
 You may ask, what's the motivation for monitoring Airflow with external resources, instead of using the UI? I answer a question with a question: how would you be notified if the scheduler queue was filled and no tasks were executing, or the scheduler went down? Without this architecture, notifications of that kind would not be intuitative to setup.
 
@@ -68,11 +68,19 @@ The following steps are to be run in a terminal:
 - Navigate to the cloned folder: `cd airflow-docker-metrics`
 - Startup the containers: `docker-compose -f docker-compose.yml up -d`. (They can be stopped by running the same command except with `stop` at the end, or `down` to remove them)
 
+## The Result
+
+An `Airflow Metrics` dashboard has been provisioned in Grafana in this repository:
+
+![Architecture](.//documentation/grafana_dashboard.png)
+
+There are many more useful StatsD metrics made available, such as DAG and task duration. These can all be leveraged to create more dashboards.
+
 ## Deployment
 
-The repository has been run locally, but can be deployed to any VM in the cloud. If an instance is spun up either on AWS or GCP for instance, SSHing onto the instance will allow the user to pull the repository, install the requirements, and start the Docker containers.
+The repository has been run locally, but can be deployed to any instance on GCP or AWS. SSHing onto the instance will allow the user to pull the repository, install the requirements, and start the Docker containers.
 
-GCP Cloud Composer is a hosted Airflow deployment, however the configuration is not exposed. Capturing StatsD metrics may not be straight forward with that approach.
+GCP Cloud Composer is a hosted Airflow deployment, however the configuration is not exposed. Capturing StatsD metrics may not be straight forward with that approach. This repository is a guide for a self-managed Airflow deployment; other hosted options for Airflow (such as Astronomer) exist.
 
 # Technical Notes
 
@@ -88,3 +96,5 @@ The primary steps taken to transition from the puckel/docker-airflow to the apac
 Ways to improve the current architecture include:
 - Not running a `sleep` command in the scheduler to wait for the `initdb` command in the `webserver` to complete.
 - Further testing with the CeleryExecutor, and extensibility to the KubernetesExecutor (if relevant)
+
+Have suggestions? I love talking about data stacks. Shoot me a message [here](https://www.linkedin.com/in/sarah-krasnik/).
