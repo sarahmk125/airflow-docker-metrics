@@ -24,7 +24,7 @@ The resources are located at the following URLs:
 
 ### Official Image
 
-The Airflow containers are built using the official `apache/airflow` Docker image, version 1.10.12. This contains significant updates when compared to the `puckel/docker-airflow` image. This repository can be compared to the `puckel/docker-airflow` repository to indicate changes needed to migrate to the official image, but the main differences are also outlined below.
+The Airflow containers are built using the official `apache/airflow` Docker image, version 2.0.0. This contains significant updates when compared to the `puckel/docker-airflow` image. This repository can be compared to the `puckel/docker-airflow` repository to indicate changes needed to migrate to the official image, but the main differences are also outlined below.
 
 ### Containers
 
@@ -67,6 +67,7 @@ The following steps are to be run in a terminal:
 - Clone the repository: `git clone https://github.com/sarahmk125/airflow-docker-metrics.git`
 - Navigate to the cloned folder: `cd airflow-docker-metrics`
 - Startup the containers: `docker-compose -f docker-compose.yml up -d`. (They can be stopped by running the same command except with `stop` at the end, or `down` to remove them)
+- Note: to log in to the webserver, a user must be created. Exec onto the webserver and run: `airflow users create -r Admin -u admin -p password -e example@airflow.com -f first -l last`. This can be added to the docker-compose file in the future.
 
 ## The Result
 
@@ -87,14 +88,14 @@ GCP Cloud Composer is a hosted Airflow deployment, however the configuration is 
 ## Transitioning to the Official Airflow Image
 
 The primary steps taken to transition from the puckel/docker-airflow to the apache/airflow image are:
-- The `airflow.cfg` file is no longer used. All variables are defined as ENV variables in the `docker-compose.yml` file. These include: StatsD specs, the SQLAlchemy connection information, and the home directory.
 - The `airflow initdb` to initialize Airflow's backend database is run as a command when bringing up the webserver container, declared in the `docker-compose.yml` file.
 - If using the CeleryExecutor, variables needed should be defined as ENV variables in the `docker-compose.yml` file.
 
 ## Future Improvements
 
 Ways to improve the current architecture include:
-- Not running a `sleep` command in the scheduler to wait for the `initdb` command in the `webserver` to complete.
+- Not running a `sleep` command in the scheduler to wait for the `db init` command in the `webserver` to complete.
 - Further testing with the CeleryExecutor, and extensibility to the KubernetesExecutor (if relevant)
+- Bugfixes: create user in the docker-compose file; logs aren't showing up in the UI.
 
 Have suggestions? I love talking about data stacks. Shoot me a message [here](https://www.linkedin.com/in/sarah-krasnik/).

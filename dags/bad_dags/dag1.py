@@ -1,8 +1,12 @@
+import io
+import time
+from datetime import datetime, timedelta
 from time import sleep
+
+import pandas as pd
+import requests
 from airflow import DAG
 from airflow.operators.bash_operator import BashOperator
-from datetime import datetime, timedelta
-
 
 # Default parameters
 default_args = {
@@ -10,7 +14,7 @@ default_args = {
     "depends_on_past": False,
     "start_date": datetime(2020, 9, 1),
     "retries": 1,
-    "retry_delay": timedelta(minutes=2)
+    "retry_delay": timedelta(minutes=2),
 }
 
 
