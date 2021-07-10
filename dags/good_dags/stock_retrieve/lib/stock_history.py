@@ -36,3 +36,7 @@ class StockHistory(object):
         data = response.content.decode("utf8")
         df_history = pd.read_csv(io.StringIO(data))
         print(df_history)
+
+
+if __name__ == '__main__':
+    StockHistory().stock_retrieve('GOOGL')

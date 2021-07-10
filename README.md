@@ -1,10 +1,12 @@
 # Overview
 
-This repository is one deployment of Airflow, a data orchestration tool, from the official `apache/airflow` image in Docker with reporting dashboards setup in Grafana. To configure Airflow metrics to be usable in Grafana, the following tools are also used: StatsD, StatsD-Exporter, and Prometheus. The setup is described below.
+This repository is one deployment of Airflow, a data orchestration tool, from the official `apache/airflow` image in Docker with reporting dashboards setup in Grafana. To configure Airflow metrics to be usable in Grafana, the following tools are also used: StatsD, StatsD-Exporter, and Prometheus. The setup is described below. Associated blog post [here](https://towardsdatascience.com/airflow-in-docker-metrics-reporting-83ad017a24eb).
 
-You may ask, what's the motivation for monitoring Airflow with external resources, instead of using the UI? I answer a question with a question: how would you be notified if the scheduler queue was filled and no tasks were executing, or the scheduler went down? Without this architecture, notifications of that kind would not be intuitative to setup.
+Additionally, this repository showcases an example of a scalable DAG folder and code architecture, discussed in my Airflow Summit 2021 talk, `Writing Dry Code in Airflow`.
 
-# Architecture
+Now, you may ask, what's the motivation for monitoring Airflow with external resources, instead of using the UI? I answer a question with a question: how would you be notified if the scheduler queue was filled and no tasks were executing, or the scheduler went down? Without this architecture, notifications of that kind would not be intuitative to setup.
+
+# Architecture: Monitoring
 
 All of the services are run as separate containers, with Airflow using multiple containers (described below). 
 
@@ -28,7 +30,7 @@ The Airflow containers are built using the official `apache/airflow` Docker imag
 
 ### Containers
 
-There are several Airflow containers including Redis, Postgres, the Webserver, and the Scheduler. On the webserver and scheduler, a sample DAG is loaded from the `dags/` folder. The current deployment uses the LocalExecutor, but can be expanded to use the CeleryExecutor by adding a worker container. The metrics have not been tested with the KubernetesExecutor.
+There are several Airflow containers including Redis, Postgres, the Webserver, and the Scheduler. On the webserver and scheduler, a sample DAG is loaded from the `dags/` folder. The current deployment uses the CeleryExecutor; the metrics have not been tested with the KubernetesExecutor.
 
 ### StatsD
 
@@ -67,7 +69,7 @@ The following steps are to be run in a terminal:
 - Clone the repository: `git clone https://github.com/sarahmk125/airflow-docker-metrics.git`
 - Navigate to the cloned folder: `cd airflow-docker-metrics`
 - Startup the containers: `docker-compose -f docker-compose.yml up -d`. (They can be stopped by running the same command except with `stop` at the end, or `down` to remove them)
-- Note: to log in to the webserver, a user must be created. Exec onto the webserver and run: `airflow users create -r Admin -u admin -p password -e example@airflow.com -f first -l last`. This can be added to the docker-compose file in the future.
+- Note: a generic admin user is created when bringing up the containers. Username is `admin` and password is `password`.
 
 ## The Result
 
@@ -95,7 +97,6 @@ The primary steps taken to transition from the puckel/docker-airflow to the apac
 
 Ways to improve the current architecture include:
 - Not running a `sleep` command in the scheduler to wait for the `db init` command in the `webserver` to complete.
-- Further testing with the CeleryExecutor, and extensibility to the KubernetesExecutor (if relevant)
-- Bugfixes: create user in the docker-compose file; logs aren't showing up in the UI.
+- Bugfixes: sometimes DAGs don't update in the UI, and don't show any errors. Cause is unknown.
 
 Have suggestions? I love talking about data stacks. Shoot me a message [here](https://www.linkedin.com/in/sarah-krasnik/).

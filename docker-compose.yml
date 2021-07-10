@@ -1,10 +1,60 @@
-version: '2.1'
+version: '3'
+x-airflow-common:
+  &airflow-common
+  image: apache/airflow:2.1.0
+  environment:
+    - LOAD_EX=n
+    - POSTGRES_USER=airflow
+    - POSTGRES_PASSWORD=airflow
+    - POSTGRES_DB=airflow
+    - REDIS_HOST=redis
+    - REDIS_PASSWORD=redis
+    - AIRFLOW__SCHEDULER__STATSD_ON=True
+    - AIRFLOW__SCHEDULER__STATSD_HOST=statsd-exporter
+    - AIRFLOW__SCHEDULER__STATSD_PORT=8125
+    - AIRFLOW__SCHEDULER__STATSD_PREFIX=airflow
+    - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://airflow:airflow@postgres/airflow
+    - AIRFLOW__CELERY__BROKER_URL=redis://:redis@redis:6379/1
+    - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+    - AIRFLOW__CORE__FERNET_KEY=pMrhjIcqUNHMYRk_ZOBmMptWR6o1DahCXCKn5lEMpzM=
+    - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+    - AIRFLOW_HOME=/opt/airflow
+    - AIRFLOW_CONFIG=/opt/airflow/airflow.cfg
+    - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
+    - AIRFLOW__WEBSERVER__WORKERS=2
+    - AIRFLOW__WEBSERVER__WORKER_REFRESH_INTERVAL=1800
+  volumes:
+    - ./dags:/opt/airflow/dags/
+    - ./airflow.cfg:/opt/airflow/airflow.cfg
+    - ./airflow-data/logs:/opt/airflow/logs
+    - ./airflow-data/plugins:/opt/airflow/plugins
+
 services:
+    airflow-init:
+        << : *airflow-common
+        container_name: airflow-init
+        entrypoint: /bin/bash
+        command:
+        - -c
+        - airflow users list || ( airflow db init &&
+            airflow users create
+            --role Admin
+            --username admin
+            --password password
+            --email airflow@airflow.com
+            --firstname first
+            --lastname last )
+        restart: on-failure
+
     redis:
         container_name: airflow-redis
         image: 'redis:5.0.5'
         depends_on:
             - statsd-exporter
+        command: redis-server --requirepass redis
+        ports:
+            - 6380:6379
 
     postgres:
         container_name: airflow-postgres
@@ -17,40 +67,17 @@ services:
             - POSTGRES_DB=airflow
 
     webserver:
+        << : *airflow-common
         container_name: airflow-webserver
-        image: apache/airflow:2.0.0-python3.7
         restart: always
         depends_on:
             - postgres
             - redis
             - statsd-exporter
-        environment:
-            - LOAD_EX=n
-            - EXECUTOR=Local
-            - POSTGRES_USER=airflow
-            - POSTGRES_PASSWORD=airflow
-            - POSTGRES_DB=airflow
-            - AIRFLOW__SCHEDULER__STATSD_ON=True
-            - AIRFLOW__SCHEDULER__STATSD_HOST=statsd-exporter
-            - AIRFLOW__SCHEDULER__STATSD_PORT=8125
-            - AIRFLOW__SCHEDULER__STATSD_PREFIX=airflow
-            - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://airflow:airflow@postgres/airflow
-            # - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
-            - AIRFLOW__CORE__FERNET_KEY=pMrhjIcqUNHMYRk_ZOBmMptWR6o1DahCXCKn5lEMpzM=
-            - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-            # - AIRFLOW__CORE__AIRFLOW_HOME=/opt/airflow/
-            - AIRFLOW_HOME=/opt/airflow
-            - AIRFLOW_CONFIG=/opt/airflow/airflow.cfg
-            - AIRFLOW__CORE__LOAD_EXAMPLES=False
-            - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
-            - AIRFLOW__WEBSERVER__WORKERS=2
-            - AIRFLOW__WEBSERVER__WORKER_REFRESH_INTERVAL=1800
-        volumes:
-            - ./dags:/opt/airflow/dags
-            - ./airflow.cfg:/opt/airflow/airflow.cfg
+            - airflow-init
         ports:
             - "8080:8080"
-        command: bash -c "airflow db init && airflow webserver"
+        command: airflow webserver
         healthcheck:
             test: ["CMD-SHELL", "[ -f /opt/airflow/airflow-webserver.pid ]"]
             interval: 30s
@@ -58,76 +85,42 @@ services:
             retries: 3
 
     flower:
+        << : *airflow-common
         container_name: airflow-flower
-        image: apache/airflow:2.0.0-python3.7
         restart: always
         depends_on:
             - redis
             - statsd-exporter
-        environment:
-            - EXECUTOR=Local
+            - airflow-init
         ports:
             - "5555:5555"
-        command: flower
+        command: airflow celery flower
 
     scheduler:
+        << : *airflow-common
         container_name: airflow-scheduler
-        image: apache/airflow:2.0.0-python3.7
         restart: always
         depends_on:
-            - statsd-exporter
+            - postgres
             - webserver
-        volumes:
-            - ./dags:/opt/airflow/dags
-        environment:
-            - LOAD_EX=n
-            - EXECUTOR=Local
-            - POSTGRES_USER=airflow
-            - POSTGRES_PASSWORD=airflow
-            - POSTGRES_DB=airflow
-            - AIRFLOW_HOME=/opt/airflow
-            - AIRFLOW_CONFIG=/opt/airflow/airflow.cfg
-            - AIRFLOW__SCHEDULER__STATSD_ON=True
-            - AIRFLOW__SCHEDULER__STATSD_HOST=statsd-exporter
-            - AIRFLOW__SCHEDULER__STATSD_PORT=8125
-            - AIRFLOW__SCHEDULER__STATSD_PREFIX=airflow
-            - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://airflow:airflow@postgres/airflow
-            # - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
-            - AIRFLOW__CORE__FERNET_KEY=pMrhjIcqUNHMYRk_ZOBmMptWR6o1DahCXCKn5lEMpzM=
-            - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-            # - AIRFLOW__CORE__AIRFLOW_HOME=/opt/airflow/
-            - AIRFLOW__CORE__LOAD_EXAMPLES=False
-            - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
-        command: bash -c "sleep 30 && airflow scheduler"
+            - airflow-init
+        command: airflow scheduler
 
-    # worker:
-    #     container_name: airflow-worker
-    #     image: apache/airflow:2.0.0-python3.7
-    #     restart: always
-    #     depends_on:
-    #         - statsd-exporter
-    #         - postgres
-    #         - webserver
-    #     volumes:
-    #         - ./dags:/opt/airflow/dags
-    #     environment:
-    #         - EXECUTOR=Local
-    #         - POSTGRES_USER=airflow
-    #         - POSTGRES_PASSWORD=airflow
-    #         - POSTGRES_DB=airflow
-    #         - AIRFLOW__SCHEDULER__STATSD_ON=True
-    #         - AIRFLOW__SCHEDULER__STATSD_HOST=statsd-exporter
-    #         - AIRFLOW__SCHEDULER__STATSD_PORT=8125
-    #         - AIRFLOW__SCHEDULER__STATSD_PREFIX=airflow
-    #         - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql://airflow:airflow@postgres/airflow
-    #         # - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
-    #         - AIRFLOW__CELERY__CELERY_RESULT_BACKEND=db+postgresql://airflow:airflow@postgres:5432/airflow
-    #         - AIRFLOW__CORE__FERNET_KEY=pMrhjIcqUNHMYRk_ZOBmMptWR6o1DahCXCKn5lEMpzM=
-    #         - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-    #         - AIRFLOW__CORE__AIRFLOW_HOME=/opt/airflow/
-    #         - AIRFLOW__CORE__LOAD_EXAMPLES=False
-    #         - AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS=False
-    #     command: bash -c "sleep 30 && airflow worker"
+    worker:
+        << : *airflow-common
+        container_name: airflow-worker
+        restart: always
+        sysctls:
+            - net.ipv4.tcp_keepalive_time=200
+            - net.ipv4.tcp_keepalive_intvl=200
+            - net.ipv4.tcp_keepalive_probes=5
+        depends_on:
+            - redis
+            - scheduler
+            - airflow-init
+        ports:
+            - "8793"
+        command: airflow celery worker
 
     statsd-exporter:
         image: prom/statsd-exporter

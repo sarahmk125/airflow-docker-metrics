@@ -1,29 +1,15 @@
-from datetime import datetime, timedelta
-
-from airflow import DAG
-from airflow.operators.bash_operator import BashOperator
-from airflow.operators.python_operator import PythonOperator
+from good_dags.dag_factory import add_bash_task, add_python_task, create_dag
 from good_dags.stock_retrieve.lib.stock_history import StockHistory
 
-# Default parameters
-default_args = {
-    "owner": "airflow",
-    "depends_on_past": False,
-    "start_date": datetime(2021, 7, 5),
-    "retries": 1,
-    "retry_delay": timedelta(minutes=2),
-}
-
-
-# Declare dag, tasks and dependencies
 schedule = "0 6 * * *"
-dag = DAG("stock_retrieve", default_args=default_args, schedule_interval=schedule)
-t1 = BashOperator(task_id="print_date", bash_command="date", dag=dag)
-t2 = BashOperator(task_id="sleep", bash_command="sleep 1", dag=dag)
-t3 = PythonOperator(
-    task_id="stock_retrieve",
-    python_callable=StockHistory().stock_retrieve,
-    op_kwargs={"stock": "GOOGL"},
-    dag=dag,
+dag = create_dag(name="stock_retrieve", schedule=schedule)
+bash_1 = add_bash_task(name="print_date", command="date", dag=dag)
+bash_2 = add_bash_task(name="sleep", command="sleep 1", dag=dag)
+python_3 = add_python_task(
+    name="stock_retrieve_task",
+    function=StockHistory().stock_retrieve,
+    kwargs={"stock": "GOOGL"},
+    dag=dag
 )
-t1 >> t2 >> t3
+
+bash_1 >> bash_2 >> python_3
