@@ -24,7 +24,10 @@ def create_dag(name, schedule, args=None):
     return DAG(dag_id=name, default_args=args, schedule_interval=schedule)
 
 
-def add_python_task(dag, name, function, kwargs=None, trigger_rule=DEFAULT_TRIGGER_RULE, retries=DEFAULT_RETRIES):
+def add_python_task(
+    dag, name, function, kwargs=None,
+        trigger_rule=DEFAULT_TRIGGER_RULE, retries=DEFAULT_RETRIES):
+
     return PythonOperator(
         task_id=name,
         python_callable=function,
@@ -35,7 +38,10 @@ def add_python_task(dag, name, function, kwargs=None, trigger_rule=DEFAULT_TRIGG
     )
 
 
-def add_bash_task(dag, name, command, trigger_rule=DEFAULT_TRIGGER_RULE, retries=DEFAULT_RETRIES):
+def add_bash_task(
+    dag, name, command,
+        trigger_rule=DEFAULT_TRIGGER_RULE, retries=DEFAULT_RETRIES):
+
     return BashOperator(
         task_id=name,
         bash_command=command,
@@ -43,3 +49,5 @@ def add_bash_task(dag, name, command, trigger_rule=DEFAULT_TRIGGER_RULE, retries
         retries=retries,
         dag=dag
     )
+
+

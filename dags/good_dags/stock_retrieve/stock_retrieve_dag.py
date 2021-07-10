@@ -13,3 +13,5 @@ python_3 = add_python_task(
 )
 
 bash_1 >> bash_2 >> python_3
+
+
